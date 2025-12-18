@@ -1,0 +1,311 @@
+{
+  "name": "MEDHOS",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8e99f2b4-5c94-4a5c-871c-b098f291baeb",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Importamos la librería nativa de archivos (ahora habilitada)\nconst fs = require('fs');\nconst path = require('path');\n\n// Configuración\nconst CARPETA_ARCHIVOS = '/home/node/.n8n-files'; // La carpeta que mapeamos en Portainer\nconst resultados = [];\nconst errores = [];\n\n// 1. Listar archivos en la carpeta\nlet archivos;\ntry {\n    archivos = fs.readdirSync(CARPETA_ARCHIVOS).filter(file => file.endsWith('.txt'));\n} catch (error) {\n    return [{json: {error: \"No pude leer la carpeta. Verifica el mapeo en Portainer.\", detalle: error.message}}];\n}\n\n// 2. Procesar cada archivo\nfor (const nombreArchivo of archivos) {\n    const rutaCompleta = path.join(CARPETA_ARCHIVOS, nombreArchivo);\n    \n    // LEER DIRECTAMENTE DEL DISCO (Forzando Latin1)\n    // Esto evita la corrupción binaria de n8n\n    const contenido = fs.readFileSync(rutaCompleta, 'latin1');\n    \n    // Analizar metadata del nombre\n    const partesNombre = nombreArchivo.replace('.txt', '').split('_');\n    const tipoMovArchivo = partesNombre[0];\n    const esEntrada = tipoMovArchivo.startsWith('2') && tipoMovArchivo !== '27';\n    \n    const filas = contenido.split('\\n');\n    \n    // Procesar filas (Saltando la cabecera)\n    for (let i = 1; i < filas.length; i++) {\n        const linea = filas[i];\n        if (!linea || linea.trim() === '') continue;\n\n        const cols = linea.split('\\t');\n\n        // Validación de estructura\n        if (cols.length < 10) continue;\n\n        // MAPEO (Recordando que la col[0] es vacía según vimos en cat -A)\n        let obj = {\n            nombre_archivo: nombreArchivo,\n            tipo_archivo_detectado: esEntrada ? 'ENTRADA' : 'SALIDA',\n            \n            cod_insumo: cols[1]?.trim(),\n            descripcion_insumo: cols[2]?.trim(),\n            fecha_movimiento: parseFecha(cols[3]?.trim()),\n            tipo_movimiento_cod: cols[4]?.trim(),\n            nro_remito: cols[5]?.trim(),\n            nro_factura: cols[6]?.trim(),\n            nro_orden: cols[7]?.trim(),\n            nro_lote: cols[8]?.trim(),\n            fecha_vencimiento: parseFecha(cols[9]?.trim()),\n            \n            // Proveedor / Origen\n            cod_proveedor: esEntrada ? cols[10]?.trim() : null,\n            nombre_proveedor: esEntrada ? cols[11]?.trim() : null,\n            deposito_origen_cod: !esEntrada ? cols[10]?.trim() : null,\n            deposito_origen_desc: !esEntrada ? cols[11]?.trim() : null,\n\n            deposito_destino_cod: cols[12]?.trim(),\n            deposito_destino_desc: cols[13]?.trim(),\n            \n            // Números\n            cantidad: parseNumero(cols[14]),\n            precio_unitario: parseNumero(cols[15]),\n            precio_total: parseNumero(cols[16])\n        };\n        \n        if (obj.cod_insumo) {\n            resultados.push({json: obj});\n        }\n    }\n}\n\nreturn resultados;\n\n// --- Funciones ---\nfunction parseFecha(fechaStr) {\n    if (!fechaStr || fechaStr.includes('/  /') || fechaStr.length < 8) return null;\n    const partes = fechaStr.split('/');\n    return (partes.length === 3) ? `${partes[2]}-${partes[1]}-${partes[0]}` : null;\n}\n\nfunction parseNumero(str) {\n    if (!str) return 0;\n    // Elimina comas (miles) y preserva el punto\n    return parseFloat(str.replace(/,/g, '') || 0);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "8df1771f-47af-4b8f-a688-333e50fac4ca",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "raw_movimientos_siga",
+          "mode": "list",
+          "cachedResultName": "raw_movimientos_siga"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "id": 0,
+            "cantidad": 0,
+            "precio_unitario": 0,
+            "precio_total": 0
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre_archivo",
+              "displayName": "nombre_archivo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_archivo_detectado",
+              "displayName": "tipo_archivo_detectado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_carga",
+              "displayName": "fecha_carga",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cod_insumo",
+              "displayName": "cod_insumo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "descripcion_insumo",
+              "displayName": "descripcion_insumo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_movimiento",
+              "displayName": "fecha_movimiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_movimiento_cod",
+              "displayName": "tipo_movimiento_cod",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_remito",
+              "displayName": "nro_remito",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_factura",
+              "displayName": "nro_factura",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_orden",
+              "displayName": "nro_orden",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nro_lote",
+              "displayName": "nro_lote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_vencimiento",
+              "displayName": "fecha_vencimiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cod_proveedor",
+              "displayName": "cod_proveedor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nombre_proveedor",
+              "displayName": "nombre_proveedor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deposito_origen_cod",
+              "displayName": "deposito_origen_cod",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deposito_origen_desc",
+              "displayName": "deposito_origen_desc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deposito_destino_cod",
+              "displayName": "deposito_destino_cod",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deposito_destino_desc",
+              "displayName": "deposito_destino_desc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cantidad",
+              "displayName": "cantidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "precio_unitario",
+              "displayName": "precio_unitario",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "precio_total",
+              "displayName": "precio_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        0
+      ],
+      "id": "b300f253-f94c-4bf4-b7fc-c16da42620da",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "Gqz2CeyDxYqqelZ6",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "de075132-fe94-4534-b685-6bac202776f9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0f3a6f71f067b8372a37a64e3e0a6ea95523f1e2334d6a7a5a6640cb369cd08a"
+  },
+  "id": "LjAciL15Rr3ci3zO",
+  "tags": []
+}

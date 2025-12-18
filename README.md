@@ -1,13 +1,8 @@
-# proyecto-medhos-analisis
+## ⚙️ Configuración del ETL (n8n)
 
-# 🧠 Lógica para el ETL (Python/n8n)
+El flujo de trabajo `MEDHOS.json` utiliza el módulo nativo `fs` de Node.js para leer los archivos, debido a que los reportes de SIGA utilizan codificación `Latin1` y separadores de Tabulación inconsistentes que los nodos estándar no procesan correctamente.
 
-Guarda esto en la documentación de Odoo o en el README, porque es la regla de oro para programar el script de carga en la próxima etapa:
-
-Al leer cada archivo, el código debe preguntar:
-¿El nombre empieza con 2_ o 29_?
-👉 Mapear columnas 10 y 11 a cod_proveedor y nombre_proveedor.
-👉 Dejar deposito_origen como NULL.
-¿El nombre empieza con 1_, 17_ o 27_?
-👉 Mapear columnas 10 y 11 a deposito_origen_cod y deposito_origen_desc.
-👉 Dejar cod_proveedor como NULL.
+**Requisito de Despliegue:**
+El contenedor de Docker de n8n debe tener la siguiente variable de entorno habilitada para permitir la ejecución de librerías nativas:
+```bash
+NODE_FUNCTION_ALLOW_BUILTIN=*
